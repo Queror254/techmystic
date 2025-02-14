@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { NextRequest } from "next/server";
 
+export const runtime = 'edge';
+
 export async function GET(request: NextRequest) {
     const baseUrl = "http://51.20.9.253";
     const path = request.nextUrl.pathname.replace("/api/proxy", "#home");
@@ -11,20 +13,28 @@ export async function GET(request: NextRequest) {
         const response = await fetch(targetUrl);
         const contentType = response.headers.get("content-type") || "text/plain";
 
-        if (contentType.includes("text/html")) {
+        if (contentType.includes("text/html") || contentType.includes("text/css")) {
             const result = await response.text();
-            const fixedHtml = result
+            const fixedContent = result
                 .replace(/href="\//g, `href="${baseUrl}/`)
-                .replace(/src="\//g, `src="${baseUrl}/`);
+                .replace(/src="\//g, `src="${baseUrl}/`)
+                .replace(/url\(['"]?\//g, `url(${baseUrl}/`)
+                .replace(/url\((?!['"]?(?:data:|http:|https:))/g, `url(${baseUrl}/`);
 
-            return new NextResponse(fixedHtml, {
-                headers: { "Content-Type": contentType },
+            return new NextResponse(fixedContent, {
+                headers: {
+                    "Content-Type": contentType,
+                    "Access-Control-Allow-Origin": "*",
+                },
             });
         }
 
-        // For non-HTML responses, stream the response directly
+        // For non-HTML/CSS responses, stream the response directly
         return new NextResponse(response.body, {
-            headers: { "Content-Type": contentType },
+            headers: {
+                "Content-Type": contentType,
+                "Access-Control-Allow-Origin": "*",
+            },
         });
 
     } catch (error) {
